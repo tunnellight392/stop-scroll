@@ -10,11 +10,20 @@ Screen-time tools measure *time in an app*. StopScroll measures *time spent scro
 is a different and more useful number: 40 minutes in Instagram might be five minutes of
 messaging and thirty-five of feed.
 
-**Detection.** An `AccessibilityService` subscribes to `TYPE_VIEW_SCROLLED` only, and only for
-the packages you switch on — the platform filters everything else out before it reaches the
-process. Each event carries the view that scrolled, so its resource id
-(`com.google.android.youtube:id/reel_recycler`) identifies the surface directly, without
-walking the window tree. That is how Reels is told apart from the Instagram grid.
+**Detection.** An `AccessibilityService` watches only the packages you switch on — the platform
+filters everything else out before it reaches the process. Two signals are needed, because two
+kinds of feed exist:
+
+- **List-shaped feeds** (Reddit, the YouTube home feed) report scrolling. `TYPE_VIEW_SCROLLED`
+  carries the timing and the distance, and the event names the view that scrolled, so its
+  resource id identifies the surface without walking the tree.
+- **Full-screen video feeds** (Shorts, Reels, TikTok) report nothing. A dump of YouTube Shorts
+  contains no node marked `scrollable="true"` anywhere: the pager is not exposed as an
+  accessibility-scrollable container, so no amount of swiping emits an event. There the feed is
+  found by its view id (`reel_recycler`) and timed by being on screen. That number means "time
+  in the feed" rather than "time with your thumb moving" — which is the number you want anyway,
+  since most of a Shorts session is watching. Those bouts report no scroll distance, because
+  none was ever measured.
 
 **Timing.** `SessionTracker` folds the event stream into bouts. Short-video feeds get a longer
 idle window and more dwell credit than text feeds, because one swipe on TikTok holds attention

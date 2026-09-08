@@ -2,13 +2,10 @@ package com.tunnellight.stop_scroll.data.prefs
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import com.tunnellight.stop_scroll.data.model.AppCatalog
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.map
 
 data class Settings(
     val trackedPackages: Set<String> = AppCatalog.defaultPackages,
@@ -25,7 +22,7 @@ data class Settings(
 }
 
 /**
- * Preferences, exposed as a [Flow] so the accessibility service and the UI observe the same
+ * Preferences, exposed as [settings] so the accessibility service and the UI observe the same
  * source. Backed by [SharedPreferences] rather than DataStore because the accessibility
  * service needs a synchronous read on every scroll event, and a blocking read there would
  * sit on the main thread.
@@ -49,8 +46,6 @@ class SettingsStore(context: Context) {
     /** Synchronous snapshot, for the accessibility event hot path. */
     fun current(): Settings = _settings.value
 
-    val trackedPackages: Flow<Set<String>> = settings.map { it.trackedPackages }
-
     private fun read() = Settings(
         trackedPackages = prefs.getStringSet(KEY_TRACKED, null) ?: AppCatalog.defaultPackages,
         dailyGoalMinutes = prefs.getInt(KEY_GOAL, 60),
@@ -65,26 +60,26 @@ class SettingsStore(context: Context) {
     fun setTracked(packageName: String, tracked: Boolean) {
         val next = _settings.value.trackedPackages.toMutableSet()
         if (tracked) next += packageName else next -= packageName
-        prefs.edit().putStringSet(KEY_TRACKED, next).apply()
+        prefs.edit { putStringSet(KEY_TRACKED, next) }
     }
 
     fun setDailyGoalMinutes(minutes: Int) =
-        prefs.edit().putInt(KEY_GOAL, minutes.coerceIn(5, 12 * 60)).apply()
+        prefs.edit { putInt(KEY_GOAL, minutes.coerceIn(5, 12 * 60)) }
 
-    fun setLimitAlerts(enabled: Boolean) = prefs.edit().putBoolean(KEY_LIMIT_ALERTS, enabled).apply()
+    fun setLimitAlerts(enabled: Boolean) = prefs.edit { putBoolean(KEY_LIMIT_ALERTS, enabled) }
 
-    fun setBingeAlerts(enabled: Boolean) = prefs.edit().putBoolean(KEY_BINGE_ALERTS, enabled).apply()
+    fun setBingeAlerts(enabled: Boolean) = prefs.edit { putBoolean(KEY_BINGE_ALERTS, enabled) }
 
     fun setBingeMinutes(minutes: Int) =
-        prefs.edit().putInt(KEY_BINGE_MINUTES, minutes.coerceIn(5, 120)).apply()
+        prefs.edit { putInt(KEY_BINGE_MINUTES, minutes.coerceIn(5, 120)) }
 
-    fun setRetentionDays(days: Int) = prefs.edit().putInt(KEY_RETENTION, days).apply()
+    fun setRetentionDays(days: Int) = prefs.edit { putInt(KEY_RETENTION, days) }
 
     fun setSetupDismissed(dismissed: Boolean) =
-        prefs.edit().putBoolean(KEY_SETUP_DISMISSED, dismissed).apply()
+        prefs.edit { putBoolean(KEY_SETUP_DISMISSED, dismissed) }
 
     fun setDynamicColor(enabled: Boolean) =
-        prefs.edit().putBoolean(KEY_DYNAMIC_COLOR, enabled).apply()
+        prefs.edit { putBoolean(KEY_DYNAMIC_COLOR, enabled) }
 
     // --- colour slots -------------------------------------------------------------------
     //
@@ -102,31 +97,23 @@ class SettingsStore(context: Context) {
             .filter { it >= 0 }
             .toSet()
         val slot = (0 until SLOT_COUNT).firstOrNull { it !in taken } ?: OVERFLOW_SLOT
-        if (slot != OVERFLOW_SLOT) prefs.edit().putInt(key, slot).apply()
+        if (slot != OVERFLOW_SLOT) prefs.edit { putInt(key, slot) }
         return slot
     }
 
     fun releaseColorSlot(packageName: String) =
-        prefs.edit().remove(KEY_SLOT_PREFIX + packageName).apply()
+        prefs.edit { remove(KEY_SLOT_PREFIX + packageName) }
 
     // --- one-shot alert bookkeeping ----------------------------------------------------
 
     fun limitAlertSentFor(dayKey: Int): Boolean = prefs.getInt(KEY_LAST_LIMIT_ALERT_DAY, 0) == dayKey
 
     fun markLimitAlertSent(dayKey: Int) =
-        prefs.edit().putInt(KEY_LAST_LIMIT_ALERT_DAY, dayKey).apply()
+        prefs.edit { putInt(KEY_LAST_LIMIT_ALERT_DAY, dayKey) }
 
     fun lastBingeAlertAt(): Long = prefs.getLong(KEY_LAST_BINGE_ALERT, 0L)
 
-    fun markBingeAlertSent(at: Long) = prefs.edit().putLong(KEY_LAST_BINGE_ALERT, at).apply()
-
-    /** Emits whenever any preference changes; used to re-read tracked packages in the service. */
-    fun changes(): Flow<Unit> = callbackFlow {
-        val l = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> trySend(Unit) }
-        prefs.registerOnSharedPreferenceChangeListener(l)
-        trySend(Unit)
-        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(l) }
-    }
+    fun markBingeAlertSent(at: Long) = prefs.edit { putLong(KEY_LAST_BINGE_ALERT, at) }
 
     private companion object {
         const val KEY_TRACKED = "tracked_packages"

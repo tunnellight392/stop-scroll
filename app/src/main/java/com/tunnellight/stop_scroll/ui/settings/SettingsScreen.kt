@@ -188,18 +188,20 @@ fun SettingsScreen(contentPadding: PaddingValues, modifier: Modifier = Modifier)
         item {
             SectionCard(title = "How this works") {
                 Text(
-                    text = "StopScroll watches for scroll gestures inside the apps you pick, " +
-                        "and times how long each bout of scrolling lasts. It never reads, " +
-                        "stores or sends what is on your screen — only which app scrolled, " +
-                        "when, and how far. Everything stays in a database on this phone.",
+                    text = "StopScroll watches the apps you pick and times how long each bout " +
+                        "in a feed lasts. It never reads, stores or sends what is on your " +
+                        "screen — only which app was in front, which kind of feed was open, " +
+                        "and how far a list scrolled. Everything stays on this phone.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    text = "Short-video feeds such as Shorts, Reels and TikTok are timed " +
-                        "differently from ordinary feeds: one swipe there holds attention far " +
-                        "longer, so a bout is allowed a longer gap before it counts as ended.",
+                    text = "Ordinary feeds report their scrolling, so they are timed by the " +
+                        "scrolling itself. Short-video feeds — Shorts, Reels, TikTok — report " +
+                        "none: their players are not exposed as scrollable to Android, so no " +
+                        "swipe is ever announced. There, time is counted while the feed is on " +
+                        "screen instead, which is why those bouts show no scroll distance.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

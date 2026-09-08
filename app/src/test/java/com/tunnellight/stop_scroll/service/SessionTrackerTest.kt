@@ -3,6 +3,7 @@ package com.tunnellight.stop_scroll.service
 import com.tunnellight.stop_scroll.data.model.FeedSurface
 import com.tunnellight.stop_scroll.data.model.ScrollSession
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -152,6 +153,69 @@ class SessionTrackerTest {
         // The check-point shares the start time, so the final write replaces it rather than
         // adding a second row.
         assertEquals(0L, recorder.checkpoints.single().startTime)
+    }
+
+    @Test
+    fun `a short-video feed is timed by presence, because it reports no scrolling`() {
+        val recorder = Recorder()
+        val tracker = tracker(recorder)
+
+        // YouTube Shorts emits no scroll events at all, so these are window-probe sightings.
+        tracker.onDwell("com.google.android.youtube", FeedSurface.SHORT_VIDEO, 0L)
+        tracker.onDwell("com.google.android.youtube", FeedSurface.SHORT_VIDEO, 2_000L)
+        tracker.onDwell("com.google.android.youtube", FeedSurface.SHORT_VIDEO, 30_000L)
+        tracker.flush(300_000L)
+
+        assertEquals(1, recorder.finals.size)
+        val session = recorder.finals.single()
+        assertEquals(0L, session.startTime)
+        assertEquals(38_000L, session.endTime)
+        // No swipe was ever reported, so the distance stays honestly at zero.
+        assertEquals(0, session.scrollCount)
+        assertEquals(0L, session.scrollPx)
+    }
+
+    @Test
+    fun `a single sighting is not a bout`() {
+        val recorder = Recorder()
+        val tracker = tracker(recorder)
+
+        tracker.onDwell("com.google.android.youtube", FeedSurface.SHORT_VIDEO, 0L)
+        tracker.flush(300_000L)
+
+        assertTrue(recorder.finals.isEmpty())
+    }
+
+    @Test
+    fun `presence keeps a short-video bout alive across long gaps between sightings`() {
+        val recorder = Recorder()
+        val tracker = tracker(recorder)
+
+        // Sightings 40s apart: past the 45s feed gap in aggregate, comfortably inside the
+        // 120s short-video one, so this stays a single bout.
+        tracker.onDwell("com.google.android.youtube", FeedSurface.SHORT_VIDEO, 0L)
+        tracker.onDwell("com.google.android.youtube", FeedSurface.SHORT_VIDEO, 40_000L)
+        tracker.onDwell("com.google.android.youtube", FeedSurface.SHORT_VIDEO, 80_000L)
+        tracker.flush(400_000L)
+
+        assertEquals(1, recorder.finals.size)
+        assertEquals(88_000L, recorder.finals.single().endTime)
+    }
+
+    @Test
+    fun `isOpenOn reports the surface the live bout is on`() {
+        val recorder = Recorder()
+        val tracker = tracker(recorder)
+
+        tracker.onDwell("com.google.android.youtube", FeedSurface.SHORT_VIDEO, 0L)
+        tracker.onDwell("com.google.android.youtube", FeedSurface.SHORT_VIDEO, 1_000L)
+
+        assertTrue(tracker.isOpenOn("com.google.android.youtube", FeedSurface.SHORT_VIDEO, 5_000L))
+        assertFalse(tracker.isOpenOn("com.google.android.youtube", FeedSurface.FEED, 5_000L))
+        assertFalse(tracker.isOpenOn("com.reddit.frontpage", FeedSurface.SHORT_VIDEO, 5_000L))
+        assertFalse(
+            tracker.isOpenOn("com.google.android.youtube", FeedSurface.SHORT_VIDEO, 300_000L),
+        )
     }
 
     @Test

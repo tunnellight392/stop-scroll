@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -46,7 +47,6 @@ import com.tunnellight.stop_scroll.ui.theme.LocalChartColors
 import com.tunnellight.stop_scroll.util.Format
 import java.time.LocalDate
 import java.time.format.TextStyle
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,7 +57,6 @@ fun InsightsScreen(
 ) {
     val viewModel = rememberContainerViewModel { InsightsViewModel(it) }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val chart = LocalChartColors.current
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -204,9 +203,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.periodSection(
                 val lead = (first.dayOfWeek.value - firstDayOfWeek.value + 7) % 7
                 val cells = List(lead) { HeatCell(null, 0L) } +
                     breakdown.days.map { HeatCell(it.date, it.totalMs) }
+                // Read from the configuration rather than Locale.getDefault(), so the day
+                // initials actually change when the device language does.
+                val locale = LocalConfiguration.current.locales[0]
                 val initials = (0..6).map { offset ->
                     firstDayOfWeek.plus(offset.toLong())
-                        .getDisplayName(TextStyle.NARROW, Locale.getDefault())
+                        .getDisplayName(TextStyle.NARROW, locale)
                 }
                 var selected by remember { mutableStateOf<LocalDate?>(null) }
                 MonthHeatmap(

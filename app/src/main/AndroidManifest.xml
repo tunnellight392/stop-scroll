@@ -35,7 +35,6 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
             android:theme="@style/Theme.StopScroll"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
@@ -44,11 +43,22 @@
             </intent-filter>
         </activity>
 
+        <!--
+          The accessibility-policy check flags this declaration as well as the service class,
+          and a @SuppressLint in Kotlin cannot reach a manifest attribute — hence the ignore
+          here too. The justification is written out in full on ScrollAccessibilityService:
+          measuring the user's own feed time is the app's only function, it is disclosed before
+          the service is offered, the user picks which apps are observed, nothing is read
+          beyond which app is in front and how far a list moved, no setting is changed, and the
+          app has no internet permission. Suppressing lint does not replace the accessibility
+          declaration Google Play requires before shipping.
+        -->
         <service
             android:name=".service.ScrollAccessibilityService"
             android:exported="true"
             android:label="@string/accessibility_service_label"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            tools:ignore="AccessibilityPolicy">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
             </intent-filter>
