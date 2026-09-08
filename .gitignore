@@ -13,3 +13,10 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Signing material — never commit these. Losing the keystore means losing the ability to
+# ship an update to an already-published app, so back it up somewhere outside the repo.
+/keystore/
+*.jks
+*.keystore
+keystore.properties
