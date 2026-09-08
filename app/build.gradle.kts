@@ -48,8 +48,12 @@ android {
 
     buildTypes {
         release {
+            // R8: shrinks, optimises and obfuscates. Everything the platform instantiates by
+            // name — the Application, MainActivity and the accessibility service — is named in
+            // the manifest, so R8 keeps it without help. Room and Compose ship their own
+            // consumer rules. Anything else needing to survive goes in src/main/keepRules.
             optimization {
-                enable = false
+                enable = true
             }
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
