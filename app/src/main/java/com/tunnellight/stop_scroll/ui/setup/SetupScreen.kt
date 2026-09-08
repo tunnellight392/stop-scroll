@@ -58,8 +58,9 @@ fun SetupScreen(onEnable: () -> Unit, onSkip: () -> Unit) {
             )
             Bullet(
                 heading = "Short video is timed differently",
-                body = "One swipe on Reels holds you far longer than one flick on Reddit, so " +
-                    "each kind of feed gets its own timing rules.",
+                body = "Shorts, Reels and TikTok never report a swipe to Android at all, so " +
+                    "there they are timed by the feed being open — which is the number you " +
+                    "actually want, since most of that time is watching rather than swiping.",
             )
             Bullet(
                 heading = "Daily, weekly and monthly",
@@ -71,10 +72,12 @@ fun SetupScreen(onEnable: () -> Unit, onSkip: () -> Unit) {
         Spacer(Modifier.height(14.dp))
         SectionCard(title = "What it never does") {
             Text(
-                text = "StopScroll needs Android's accessibility service to notice a scroll " +
-                    "gesture. It only ever asks two things of that service: which app scrolled, " +
-                    "and how far. It does not read text, capture the screen, or send anything " +
-                    "anywhere — there is no network permission in this app at all.",
+                text = "StopScroll needs Android's accessibility service to notice a feed. It " +
+                    "asks that service for three things: which app is in front, which kind of " +
+                    "feed is open — found by the name of the container, like " +
+                    "\"reel_recycler\" — and how far a list scrolled. It never reads the text, " +
+                    "images, accounts or captions on your screen, never captures it, and never " +
+                    "sends anything anywhere: there is no network permission in this app at all.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

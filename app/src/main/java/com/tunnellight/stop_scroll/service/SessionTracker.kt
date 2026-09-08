@@ -5,7 +5,7 @@ import com.tunnellight.stop_scroll.data.model.ScrollSession
 import kotlin.math.abs
 
 /**
- * Timing rules for turning raw scroll events into bouts.
+ * Timing rules for turning raw signals into bouts.
  *
  * Short-video feeds get a much longer idle window and more dwell credit than text feeds: one
  * swipe on TikTok buys twenty seconds of watching, whereas one flick on Reddit buys a couple
@@ -13,29 +13,38 @@ import kotlin.math.abs
  * fragments or credits a Reddit glance as a minute of scrolling.
  */
 data class TrackerConfig(
-    /** No scroll for this long ends a text/image feed bout. */
+    /** No activity for this long ends a text/image feed bout. */
     val feedIdleGapMs: Long = 45_000L,
     /** The same, for full-screen video feeds where a single swipe holds attention far longer. */
     val shortVideoIdleGapMs: Long = 120_000L,
     /** Time credited after the final scroll of a text/image bout. */
     val feedDwellMs: Long = 3_000L,
-    /** Time credited after the final swipe of a short-video bout. */
+    /** Time credited after the last sighting of a short-video bout. */
     val shortVideoDwellMs: Long = 8_000L,
-    /** A bout needs at least this many scrolls to count; one flick is not doom scrolling. */
+    /** A scroll-driven bout needs this many scrolls to count; one flick is not doom scrolling. */
     val minScrollCount: Int = 2,
+    /** A presence-driven bout needs this many sightings, which is the same idea in time. */
+    val minDwellTicks: Int = 2,
     /** How often an in-progress bout is written to the database. */
-    val checkpointIntervalMs: Long = 60_000L,
+    val checkpointIntervalMs: Long = 15_000L,
 )
 
 /**
- * Folds a stream of scroll events into [ScrollSession]s. Deliberately free of Android types
- * so the timing rules can be unit tested against a fake clock.
+ * Folds a stream of signals into [ScrollSession]s. Deliberately free of Android types so the
+ * timing rules can be unit tested against a fake clock.
  *
- * A bout's end time is always derived from its last scroll plus the dwell credit, never from
+ * Two kinds of signal feed it, because two kinds of feed exist:
+ *  - [onScroll], for containers that report scrolling to the accessibility layer — Reddit, the
+ *    YouTube home feed, most list-shaped apps;
+ *  - [onDwell], for full-screen video pagers that report no scrolling at all. YouTube Shorts
+ *    exposes no accessibility-scrollable node, so nothing is ever emitted when you swipe; the
+ *    only honest measure there is that you were on the surface at all. For those feeds the
+ *    number means "time in the feed" rather than "time with your thumb moving", which is also
+ *    the number a viewer of Shorts actually cares about.
+ *
+ * A bout's end time is always derived from its last signal plus the dwell credit, never from
  * the moment the tracker happened to notice it had ended. Noticing late therefore costs
- * nothing in accuracy — which is why a foreground app change does not close a bout: the idle
- * window handles it, without splitting a session in two every time a toast or the
- * notification shade steals the window for a moment.
+ * nothing in accuracy.
  */
 class SessionTracker(
     private val config: TrackerConfig = TrackerConfig(),
@@ -47,8 +56,9 @@ class SessionTracker(
         val surface: FeedSurface,
         val startTime: Long,
     ) {
-        var lastScrollAt: Long = startTime
+        var lastActivityAt: Long = startTime
         var scrollCount: Int = 0
+        var dwellTicks: Int = 0
         var scrollPx: Long = 0L
         var lastCheckpointAt: Long = startTime
     }
@@ -60,26 +70,28 @@ class SessionTracker(
     /** How long the bout in progress has been running, or 0 when nothing is open. */
     fun activeBoutMs(nowMs: Long): Long {
         val current = bout ?: return 0L
-        if (nowMs - current.lastScrollAt > idleGap(current.surface)) return 0L
+        if (nowMs - current.lastActivityAt > idleGap(current.surface)) return 0L
         return (nowMs - current.startTime).coerceAtLeast(0L)
     }
 
-    fun onScroll(packageName: String, surface: FeedSurface, nowMs: Long, deltaPx: Int) {
-        val current = bout
-        val continues = current != null &&
-            current.packageName == packageName &&
+    /** True while a bout on [surface] is open for [packageName]. */
+    fun isOpenOn(packageName: String, surface: FeedSurface, nowMs: Long): Boolean {
+        val current = bout ?: return false
+        return current.packageName == packageName &&
             current.surface == surface &&
-            nowMs - current.lastScrollAt <= idleGap(current.surface)
+            nowMs - current.lastActivityAt <= idleGap(current.surface)
+    }
 
-        if (!continues) {
-            if (current != null) close(current, nowMs)
-            bout = Bout(packageName, surface, nowMs)
+    fun onScroll(packageName: String, surface: FeedSurface, nowMs: Long, deltaPx: Int) {
+        extend(packageName, surface, nowMs) {
+            scrollCount += 1
+            scrollPx += abs(deltaPx).toLong()
         }
+    }
 
-        val active = bout ?: return
-        active.lastScrollAt = nowMs
-        active.scrollCount += 1
-        active.scrollPx += abs(deltaPx).toLong()
+    /** Records that the user was seen on [surface] at [nowMs], without any scroll to go on. */
+    fun onDwell(packageName: String, surface: FeedSurface, nowMs: Long) {
+        extend(packageName, surface, nowMs) { dwellTicks += 1 }
     }
 
     /** Ends the bout in progress: the screen went off, or the service is shutting down. */
@@ -88,12 +100,12 @@ class SessionTracker(
     /** Closes an idle bout and check-points a long-running one. Call on a timer. */
     fun tick(nowMs: Long) {
         val current = bout ?: return
-        if (nowMs - current.lastScrollAt > idleGap(current.surface)) {
+        if (nowMs - current.lastActivityAt > idleGap(current.surface)) {
             close(current, nowMs)
             return
         }
         if (nowMs - current.lastCheckpointAt >= config.checkpointIntervalMs &&
-            current.scrollCount >= config.minScrollCount
+            current.isSubstantial()
         ) {
             current.lastCheckpointAt = nowMs
             onUpdate(current.toSession(endTime = nowMs), false)
@@ -105,13 +117,42 @@ class SessionTracker(
         close(current, nowMs)
     }
 
+    private fun extend(
+        packageName: String,
+        surface: FeedSurface,
+        nowMs: Long,
+        record: Bout.() -> Unit,
+    ) {
+        val current = bout
+        val continues = current != null &&
+            current.packageName == packageName &&
+            current.surface == surface &&
+            nowMs - current.lastActivityAt <= idleGap(current.surface)
+
+        if (!continues) {
+            if (current != null) close(current, nowMs)
+            bout = Bout(packageName, surface, nowMs)
+        }
+
+        val active = bout ?: return
+        active.lastActivityAt = nowMs
+        active.record()
+    }
+
     private fun close(current: Bout, closeAt: Long) {
         bout = null
-        if (current.scrollCount < config.minScrollCount) return
-        val credited = current.lastScrollAt + dwell(current.surface)
-        val endTime = maxOf(current.lastScrollAt, minOf(credited, maxOf(closeAt, current.lastScrollAt)))
+        if (!current.isSubstantial()) return
+        val credited = current.lastActivityAt + dwell(current.surface)
+        val endTime = maxOf(
+            current.lastActivityAt,
+            minOf(credited, maxOf(closeAt, current.lastActivityAt)),
+        )
         onUpdate(current.toSession(endTime), true)
     }
+
+    /** A bout counts once it has enough evidence of either kind behind it. */
+    private fun Bout.isSubstantial(): Boolean =
+        scrollCount >= config.minScrollCount || dwellTicks >= config.minDwellTicks
 
     private fun Bout.toSession(endTime: Long) = ScrollSession(
         startTime = startTime,

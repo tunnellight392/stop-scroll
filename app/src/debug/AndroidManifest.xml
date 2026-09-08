@@ -1,12 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Debug-only additions. None of this is merged into a release build. -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application>
-        <!-- Fills the database with plausible history so the analytics screens can be
-             reviewed during development. See SeedDataReceiver for the adb command. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!--
+      This <application> is an overlay that contributes one receiver; the icon, label, theme and
+      everything else come from the main manifest at merge time. The IDE inspects this file on
+      its own and cannot see that, so it reports a missing icon that the merged manifest has.
+    -->
+    <application tools:ignore="MissingApplicationIcon">
+        <!--
+          Fills the database with plausible history so the analytics screens can be reviewed
+          during development. See SeedDataReceiver for the adb command.
+
+          Exported without a permission on purpose: adb has to be able to broadcast to it, and
+          it exists only in the debug variant, so nothing exported here reaches a release build.
+        -->
         <receiver
             android:name=".debug.SeedDataReceiver"
-            android:exported="true">
+            android:exported="true"
+            tools:ignore="ExportedReceiver">
             <intent-filter>
                 <action android:name="com.tunnellight.stop_scroll.SEED" />
             </intent-filter>

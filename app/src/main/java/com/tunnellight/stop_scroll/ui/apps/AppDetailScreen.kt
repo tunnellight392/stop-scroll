@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -48,7 +49,7 @@ fun AppDetailScreen(packageName: String, onBack: () -> Unit) {
     val viewModel: AppDetailViewModel = viewModel(factory = factory, key = packageName)
     val state by viewModel.state.collectAsStateWithLifecycle()
     val chart = LocalChartColors.current
-    val yDpi = LocalContext.current.resources.displayMetrics.ydpi
+    val yDpi = LocalResources.current.displayMetrics.ydpi
 
     Scaffold(
         topBar = {

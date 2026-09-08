@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -49,7 +50,7 @@ fun TodayScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val chart = LocalChartColors.current
-    val yDpi = context.resources.displayMetrics.ydpi
+    val yDpi = LocalResources.current.displayMetrics.ydpi
 
     LifecycleResumeEffect(Unit) {
         viewModel.refresh()
