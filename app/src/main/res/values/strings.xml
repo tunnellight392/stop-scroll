@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">StopScroll</string>
+    <string name="accessibility_service_label">StopScroll scroll tracking</string>
+    <string name="accessibility_service_summary">Times how long you spend scrolling in the apps you choose</string>
+    <string name="accessibility_service_description">StopScroll uses this service to notice when a feed scrolls in the apps you have switched on, so it can measure how long each bout of scrolling lasts. It reads only which app scrolled and how far — never the text, images or accounts on your screen. Nothing is sent off the device; the app has no internet permission.</string>
+</resources>

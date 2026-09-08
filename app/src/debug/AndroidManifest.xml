@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug-only additions. None of this is merged into a release build. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Fills the database with plausible history so the analytics screens can be
+             reviewed during development. See SeedDataReceiver for the adb command. -->
+        <receiver
+            android:name=".debug.SeedDataReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.tunnellight.stop_scroll.SEED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>
