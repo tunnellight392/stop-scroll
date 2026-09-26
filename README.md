@@ -41,6 +41,7 @@ would always show a flattering drop. Once the period is finished, both are taken
 The app has **no internet permission**. Nothing is read from the screen: only which app
 scrolled, when, and how far. All data lives in a Room database on the device, with a
 configurable retention window and a delete-everything button.
+See the full [privacy policy](PRIVACY_POLICY.md).
 
 ## Layout
 
